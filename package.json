@@ -1,0 +1,29 @@
+{
+  "name": "decorum",
+  "version": "0.1.1",
+  "description": "A Discord bot for community-driven moderation.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Qursch/decorum.git"
+  },
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "discordjs"
+  ],
+  "author": "Qursch",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Qursch/decorum/issues"
+  },
+  "homepage": "https://github.com/Qursch/decorum#readme",
+  "dependencies": {
+    "discord-buttons": "^3.2.1",
+    "discord.js": "^12.5.3",
+    "dotenv": "^10.0.0"
+  }
+}
