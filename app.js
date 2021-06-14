@@ -42,7 +42,9 @@ client.on("message", async (message) => {
     if (command.startsWith("~")) {
         let currentGuild = await getOrCreateGuild(message.guild.id);
         if (command == "~set") {
-            // CHECK PERMISSIONS HERE
+            if(!message.member.hasPermission("MANAGE_CHANNELS")) {
+                return message.channel.send("Error: Insufficient permissions.")
+            }
             if (args[0] == "channel") {
                 if (args[1] == "logs") {
                     let channel = (message.mentions.channels.size !== 0) ? message.mentions.channels.first() : message.guild.channels.cache.find(c => c.id == args[2]);
