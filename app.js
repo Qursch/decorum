@@ -4,16 +4,24 @@ require('dotenv').config();
 // Require Modules
 const Discord = require("discord.js");
 const DiscordButtons = require('discord-buttons');
+const mongoose = require("mongoose");
 
+// Configuration
+const config = require("./util/config");
 
-
-// Create Client
+// Setup Discord
 const client = new Discord.Client({});
 DiscordButtons(client);
 client.commands = new Discord.Collection();
 
-// Configuration
-const config = require("./util/config");
+// Setup Database
+mongoose.connect(config.MONGO_URL, {useNewUrlParser: true, useUnifiedTopology: true});
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'Error connecting to database:'));
+db.once("open", () => {
+    console.log("Successfully connected to database.");
+});
+const Server = require("./models/Server");
 
 const rchannelID = "853616304451616808";
 const lchannelID = "853670808992088114";
@@ -23,6 +31,9 @@ client.on("message", async (message) => {
     let command = args.shift();
 
     if (command === "~report") {
+
+        let currentGuild = await Server.findById(message.guild.id);
+
         let reportedID =
             (message.reference !== null) ? message.reference.messageID :
                 (!isNaN(args[0])) ? args[0] :
