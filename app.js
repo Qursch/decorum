@@ -96,7 +96,7 @@ client.on("message", async (message) => {
                     });
                     let report;
                     if (reports.size !== 0) {
-                        report = reports.find(r => r.embeds[0].fields[1].value == reportedID);
+                        report = reports.find(r => r.embeds[0].url.split("/")[6] == reportedID);
                     }
                     if (report === undefined) {
                         let embed = new Discord.MessageEmbed()
@@ -133,13 +133,13 @@ client.on("message", async (message) => {
 
                         await reportChannel.send("", { embed: embed, component: actions });
                     } else {
-                        if (!report.embeds[0].fields[3].value.includes(message.author.id)) {
+                        if (!report.embeds[0].fields[2].value.includes(message.author.id)) {
                             let newEmbed = report.embeds[0];
                             let description = newEmbed.description.split(" ");
                             description[2]++;
                             description[3] = "Users"
                             newEmbed.description = description.join(" ");
-                            newEmbed.fields[3] = { name: "Reporters", value: newEmbed.fields[3].value + ", <@" + message.author.id + ">" };
+                            newEmbed.fields[2] = { name: "Reporters", value: newEmbed.fields[2].value + ", <@" + message.author.id + ">" };
                             report.edit("", { embed: newEmbed });
                         }
                     }
