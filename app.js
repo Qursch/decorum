@@ -68,6 +68,9 @@ client.on("message", async (message) => {
                 }
             }
         } else if (command === "~report") {
+            if(currentGuild.reportChannel === "") {
+                return message.channel.send("Error: No report channel is set.");
+            }
             let reportedID =
                 (message.reference !== null) ? message.reference.messageID :
                     (!isNaN(args[0])) ? args[0] :
@@ -82,10 +85,9 @@ client.on("message", async (message) => {
                 if (reportedMessage.author.id === message.author.id) {
                     return message.channel.send("Error: You cannot report your own message.");
                 }
-
                 let reportChannel = message.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
                 if (reportChannel === undefined) {
-                    return message.channel.send("Error: Could not find channel.");
+                    return message.channel.send("Error: Could not report channel.");
                 }
 
                 reportChannel.messages.fetch().then(async messages => {
@@ -178,12 +180,13 @@ client.on("clickButton", async (button) => {
             newEmbed.title = "Resolved Report";
             newEmbed.url = "";
             newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
+            button.message.delete();
+            if(currentGuild.logChannel === "") return;
             let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
             if (logChannel === null) {
-                return button.message.channel.send("Error: Could not find channel.");
+                return button.message.channel.send("Error: Could not find log channel.");
             }
             await logChannel.send(newEmbed);
-            button.message.delete();
         });
     } else if (button.id.startsWith("reject")) {
         let newEmbed = button.message.embeds[0];
@@ -193,12 +196,13 @@ client.on("clickButton", async (button) => {
         newEmbed.color = "#ED4245";
         newEmbed.title = "Resolved Report"
         newEmbed.fields.unshift({ name: "Result", value: "Rejected by <@" + button.clicker.user.id + ">" });
+        button.message.delete();
+        if(currentGuild.logChannel === "") return;
         let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
         if (logChannel === null) {
-            return button.message.channel.send("Error: Could not find channel.");
+            return button.message.channel.send("Error: Could not find log channel.");
         }
         await logChannel.send(newEmbed);
-        button.message.delete();
     } else if (button.id.startsWith("ignore")) {
         let newEmbed = button.message.embeds[0];
         if (newEmbed.fields[0].value.endsWith("may have been deleted.")) {
@@ -207,12 +211,14 @@ client.on("clickButton", async (button) => {
         newEmbed.color = "#666666";
         newEmbed.title = "Resolved Report"
         newEmbed.fields.unshift({ name: "Result", value: "Ignored by <@" + button.clicker.user.id + ">" });
-        let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
+        button.message.delete();
+        if(currentGuild.logChannel === "") return;
+
+        let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel); 
         if (logChannel === null) {
-            return button.message.channel.send("Error: Could not find channel.");
+            return button.message.channel.send("Error: Could not find log channel.");
         }
         await logChannel.send(newEmbed);
-        button.message.delete();
     }
 });
 
@@ -220,7 +226,7 @@ client.on("messageDelete", async (message) => {
     let currentGuild = await getOrCreateGuild(message.guild.id);
     let reportChannel = message.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
     if (reportChannel === undefined) {
-        return message.channel.send("Error: Could not find channel.");
+        return
     }
     reportChannel.messages.fetch().then(messages => {
         let reports = messages.filter((m) => {
