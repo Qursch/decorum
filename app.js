@@ -26,7 +26,7 @@ const getOrCreateGuild = async (id) => {
     let guild = await GuildSettings.findById(id);
     if(guild === null) {
         guild = new GuildSettings({ 
-            _id: message.guild.id
+            _id: id
         });
         await guild.save();
     }
