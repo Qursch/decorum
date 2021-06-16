@@ -9,5 +9,9 @@ module.exports = mongoose.model("GuildSettings", new mongoose.Schema({
     logChannel: {
         type: String,
         default: ""
+    },
+    reportThreshold: {
+        type: mongoose.Decimal128,
+        default: -1
     }
 }));
