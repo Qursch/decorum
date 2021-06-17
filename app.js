@@ -13,7 +13,7 @@ DiscordButtons(client);
 client.commands = new Discord.Collection();
 
 // Setup Database
-mongoose.connect(config.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(config.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false });
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'Error connecting to database:'));
 db.once("open", () => {
@@ -56,7 +56,9 @@ const calculateReportScore = (approved, ignored, rejected) => {
 
     let score = formula / (formula + 1);
 
-    return score;
+    let roundedScore = Math.round((score + Number.EPSILON) * 100) / 100;
+
+    return roundedScore;
 };
 
 client.on("message", async (message) => {
@@ -92,9 +94,9 @@ client.on("message", async (message) => {
 
                     }
                 }
-            } else if(args[0] == "threshold") {
+            } else if (args[0] == "threshold") {
                 let threshold = parseFloat(args[1]);
-                if(!isNaN(threshold) && (threshold >= 0 || threshold === -1)) {
+                if (!isNaN(threshold) && (threshold >= 0 || threshold === -1)) {
                     currentGuild.reportThreshold = threshold;
                     currentGuild.save();
                     message.channel.send("Updated report threshold to `" + currentGuild.reportThreshold + "`.");
@@ -171,7 +173,7 @@ client.on("message", async (message) => {
                             .addComponent(reject)
                             .addComponent(ignore);
 
-                        if(currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
+                        if (currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
                             embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
                             await reportedMessage.delete().catch(e => "Message was already deleted?");
                         }
@@ -187,12 +189,12 @@ client.on("message", async (message) => {
                             title[4] = "Users"
                             newEmbed.title = title.join(" ");
                             newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + message.author.id + "> (" + authorReportScore + ")" };
-                            if(currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
+                            if (currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
                                 newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
                                 await reportedMessage.delete().catch(e => "Message was already deleted?");
                             }
                             report.edit("", { embed: newEmbed });
-                            
+
                         }
                     }
                     message.delete().catch(e => "Message was already deleted?");
@@ -212,60 +214,77 @@ client.on("clickButton", async (button) => {
         let guildID = splitLink[4];
         let channelID = splitLink[5];
         let messageID = splitLink[6];
-        client.guilds.fetch(guildID).then(async guild => {
-            let newEmbed = button.message.embeds[0];
-            let handlerMessage = (button.clicker.user === null) ? "Approved. Error recording report handler." : "Approved by <@" + button.clicker.user.id + ">";
-            if (!newEmbed.description.startsWith(":warning:")) {
-                let channel = guild.channels.cache.find(c => c.id == channelID);
-                if (channel !== undefined) {
-                    channel.messages.fetch().then(async messages => {
-                        let message = messages.find(m => m.id == messageID);
-                        if (message !== undefined) {
-                            await message.delete();
-                        }
-                    });
-                }
-            }
-            newEmbed.color = "#57F287";
-            newEmbed.title = "Resolved Report";
-            newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
-            button.message.delete();
-            if (currentGuild.logChannel === "") return;
-            let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
-            if (logChannel === null) {
-                return button.message.channel.send("Error: Could not find log channel.");
-            }
-            await logChannel.send(newEmbed);
+        let reporters = button.message.embeds[0].fields[3].value.match(/<@\d+>/g);
+        reporters.forEach(async reporter => {
+            let reporterID = reporter.replace(/[^0-9]/g, "");
+            await ReportScore.findOneAndUpdate({ userID: reporterID, guildID: button.guild.id }, { $inc: { approved: 1 } });
         });
-    } else if (button.id.startsWith("reject")) {
         let newEmbed = button.message.embeds[0];
-        if (newEmbed.description.endsWith("may have been deleted.")) {
+        let handlerMessage = (button.clicker.user === null) ? "Approved. Error recording report handler." : "Approved by <@" + button.clicker.user.id + ">";
+        if (newEmbed.description === null || !newEmbed.description.startsWith(":warning:")) {
+            let channel = button.guild.channels.cache.find(c => c.id == channelID);
+            if (channel !== undefined) {
+                channel.messages.fetch().then(async messages => {
+                    let message = messages.find(m => m.id == messageID);
+                    if (message !== undefined) {
+                        await message.delete();
+                    }
+                });
+            }
+        }
+        newEmbed.color = "#57F287";
+        newEmbed.title = "Resolved Report";
+        newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
+
+        button.message.delete();
+        if (currentGuild.logChannel === "") return;
+        let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
+        if (logChannel === null) {
+            return button.channel.send("Error: Could not find log channel.");
+        }
+        await logChannel.send(newEmbed);
+
+    } else if (button.id.startsWith("reject")) {
+        let reporters = button.message.embeds[0].fields[3].value.match(/<@\d+>/g);
+        reporters.forEach(async reporter => {
+            let reporterID = reporter.replace(/[^0-9]/g, "");
+            await ReportScore.findOneAndUpdate({ userID: reporterID, guildID: button.guild.id }, { $inc: { rejected: 1 } });
+        });
+        let newEmbed = button.message.embeds[0];
+        if (newEmbed.description !== null && newEmbed.description.endsWith("may have been deleted.")) {
             newEmbed.description = "";
         }
         newEmbed.color = "#ED4245";
-        newEmbed.title = "Resolved Report"
-        newEmbed.fields.unshift({ name: "Result", value: "Rejected by <@" + button.clicker.user.id + ">" });
+        newEmbed.title = "Resolved Report";
+        let handlerMessage = (button.clicker.user === null) ? "Rejected. Error recording report handler." : "Rejected by <@" + button.clicker.user.id + ">";
+        newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
         button.message.delete();
         if (currentGuild.logChannel === "") return;
-        let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
+        let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
         if (logChannel === null) {
-            return button.message.channel.send("Error: Could not find log channel.");
+            return button.channel.send("Error: Could not find log channel.");
         }
         await logChannel.send(newEmbed);
     } else if (button.id.startsWith("ignore")) {
+        let reporters = button.message.embeds[0].fields[3].value.match(/<@\d+>/g);
+        reporters.forEach(async reporter => {
+            let reporterID = reporter.replace(/[^0-9]/g, "");
+            await ReportScore.findOneAndUpdate({ userID: reporterID, guildID: button.guild.id }, { $inc: { ignored: 1 } });
+        });
         let newEmbed = button.message.embeds[0];
-        if (newEmbed.description.endsWith("may have been deleted.")) {
+        if (newEmbed.description !== null && newEmbed.description.endsWith("may have been deleted.")) {
             newEmbed.description = "";
         }
         newEmbed.color = "#666666";
-        newEmbed.title = "Resolved Report"
-        newEmbed.fields.unshift({ name: "Result", value: "Ignored by <@" + button.clicker.user.id + ">" });
+        newEmbed.title = "Resolved Report";
+        let handlerMessage = (button.clicker.user === null) ? "Ignored. Error recording report handler." : "Ignored by <@" + button.clicker.user.id + ">";
+        newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
         button.message.delete();
         if (currentGuild.logChannel === "") return;
 
-        let logChannel = button.message.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
+        let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
         if (logChannel === null) {
-            return button.message.channel.send("Error: Could not find log channel.");
+            return button.channel.send("Error: Could not find log channel.");
         }
         await logChannel.send(newEmbed);
     }
@@ -299,7 +318,7 @@ client.on("channelDelete", (channel) => {
     let currentGuild = getOrCreateGuild(channel.guild.id);
     let reportChannel = channel.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
 
-    if(reportChannel === undefined) return;
+    if (reportChannel === undefined) return;
 
     reportChannel.messages.fetch().then(messages => {
         let reports = messages.filter((m) => {
@@ -310,7 +329,7 @@ client.on("channelDelete", (channel) => {
 
         report = reports.find(r => r.embeds[0].url.split("/")[5] == channel.id);
 
-        if (report !== undefined && !report.embeds[0].description.endsWith("threshold.")) {
+        if (report !== undefined && report.embeds[0].description !== null && !report.embeds[0].description.endsWith("threshold.")) {
             let newEmbed = report.embeds[0];
             newEmbed.description = ":warning: Notice :warning: The channel of this message may have been deleted.";
             report.edit("", { embed: newEmbed });

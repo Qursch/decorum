@@ -37,14 +37,9 @@ To get started, create a fork of this repository.
 ## TODO 
 - Restructure project files
   - Clean up app.js
-- Add report score for each user
-  - Average of the following:
-    - Approved report = +
-    - Rejected report = -
-    - Ignored report = No change
-  - List score of reporter(s) in report
-- Option to delete reported message
-  - Base deletion of combined reporter(s) score
+- Test for bugs
+  - Deletion issues
+- Allow weights of report options to be set by servers
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
