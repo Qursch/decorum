@@ -136,6 +136,7 @@ client.on("message", async (message) => {
 
                     let rsOBJ = await getOrCreateReportScore(message.author.id, message.guild.id);
                     let authorReportScore = calculateReportScore(rsOBJ.approved, rsOBJ.ignored, rsOBJ.rejected);
+                    let newScore = authorReportScore;
 
                     if (report === undefined) {
                         let embed = new Discord.MessageEmbed()
@@ -170,21 +171,28 @@ client.on("message", async (message) => {
                             .addComponent(reject)
                             .addComponent(ignore);
 
+                        if(currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
+                            embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                            await reportedMessage.delete().catch(e => "Message was already deleted?");
+                        }
+
                         await reportChannel.send("", { embed: embed, component: actions });
                     } else {
                         if (!report.embeds[0].fields[3].value.includes(message.author.id)) {
                             let newEmbed = report.embeds[0];
-                            let newScore = parseFloat(newEmbed.fields[1].value.split("/")[0]) + authorReportScore;
+                            newScore += parseFloat(newEmbed.fields[1].value.split("/")[0]);
                             newEmbed.fields[1].value = newScore + "/" + currentGuild.reportThreshold;
                             let title = newEmbed.title.split(" ");
                             title[3]++;
                             title[4] = "Users"
                             newEmbed.title = title.join(" ");
                             newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + message.author.id + "> (" + authorReportScore + ")" };
-                            report.edit("", { embed: newEmbed });
                             if(currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
-                                await reportedMessage.delete();
+                                newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                                await reportedMessage.delete().catch(e => "Message was already deleted?");
                             }
+                            report.edit("", { embed: newEmbed });
+                            
                         }
                     }
                     message.delete().catch(e => "Message was already deleted?");
@@ -207,9 +215,7 @@ client.on("clickButton", async (button) => {
         client.guilds.fetch(guildID).then(async guild => {
             let newEmbed = button.message.embeds[0];
             let handlerMessage = (button.clicker.user === null) ? "Approved. Error recording report handler." : "Approved by <@" + button.clicker.user.id + ">";
-            if (newEmbed.fields[0].value.endsWith("may have been deleted.")) {
-                newEmbed.fields.splice(0, 1);
-            } else {
+            if (!newEmbed.description.startsWith(":warning:")) {
                 let channel = guild.channels.cache.find(c => c.id == channelID);
                 if (channel !== undefined) {
                     channel.messages.fetch().then(async messages => {
@@ -222,7 +228,6 @@ client.on("clickButton", async (button) => {
             }
             newEmbed.color = "#57F287";
             newEmbed.title = "Resolved Report";
-            newEmbed.url = "";
             newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
             button.message.delete();
             if (currentGuild.logChannel === "") return;
@@ -234,8 +239,8 @@ client.on("clickButton", async (button) => {
         });
     } else if (button.id.startsWith("reject")) {
         let newEmbed = button.message.embeds[0];
-        if (newEmbed.fields[0].value.endsWith("may have been deleted.")) {
-            newEmbed.fields.splice(0, 1);
+        if (newEmbed.description.endsWith("may have been deleted.")) {
+            newEmbed.description = "";
         }
         newEmbed.color = "#ED4245";
         newEmbed.title = "Resolved Report"
@@ -249,8 +254,8 @@ client.on("clickButton", async (button) => {
         await logChannel.send(newEmbed);
     } else if (button.id.startsWith("ignore")) {
         let newEmbed = button.message.embeds[0];
-        if (newEmbed.fields[0].value.endsWith("may have been deleted.")) {
-            newEmbed.fields.splice(0, 1);
+        if (newEmbed.description.endsWith("may have been deleted.")) {
+            newEmbed.description = "";
         }
         newEmbed.color = "#666666";
         newEmbed.title = "Resolved Report"
@@ -281,7 +286,7 @@ client.on("messageDelete", async (message) => {
 
         report = reports.find(r => r.embeds[0].url.split("/")[6] == message.id);
 
-        if (report !== undefined) {
+        if (report !== undefined && !report.embeds[0].description.endsWith("threshold.")) {
             let newEmbed = report.embeds[0];
             newEmbed.description = ":warning: Notice :warning: This message has been deleted.";
             report.edit("", { embed: newEmbed });
@@ -305,9 +310,9 @@ client.on("channelDelete", (channel) => {
 
         report = reports.find(r => r.embeds[0].url.split("/")[5] == channel.id);
 
-        if (report !== undefined) {
+        if (report !== undefined && !report.embeds[0].description.endsWith("threshold.")) {
             let newEmbed = report.embeds[0];
-            newEmbed.fields.unshift({ name: ":warning: Notice :warning:", value: "The channel of this message may have been deleted.\n" });
+            newEmbed.description = ":warning: Notice :warning: The channel of this message may have been deleted.";
             report.edit("", { embed: newEmbed });
         }
     });
