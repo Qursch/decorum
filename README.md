@@ -4,7 +4,7 @@
 
 ## Installation
 
-Use the node package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Use the node package manager [npm](https://www.npmjs.com/) to install the required modules.
 
 ```
 git clone https://github.com/Qursch/decorum.git
@@ -18,6 +18,7 @@ Create a `.env` file with the following filled out:
 
 ```
 DISCORD_TOKEN={TOKEN HERE}
+MONGO_URL={URL HERE}
 ```
 To start the bot, run:
 ```
@@ -25,7 +26,7 @@ npm start
 ```
 Or alternatively for development:
 ```
-nodemon start
+nodemon app.js
 ```
 
 ## Contributing
