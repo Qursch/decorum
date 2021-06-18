@@ -173,7 +173,7 @@ client.on("message", async (message) => {
                             .addComponent(reject)
                             .addComponent(ignore);
 
-                        if (currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
+                        if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
                             embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
                             await reportedMessage.delete().catch(e => "Message was already deleted?");
                         }
@@ -189,7 +189,7 @@ client.on("message", async (message) => {
                             title[4] = "Users"
                             newEmbed.title = title.join(" ");
                             newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + message.author.id + "> (" + authorReportScore + ")" };
-                            if (currentGuild.reportThreshold !== 0 && newScore >= currentGuild.reportThreshold) {
+                            if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
                                 newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
                                 await reportedMessage.delete().catch(e => "Message was already deleted?");
                             }
@@ -227,7 +227,7 @@ client.on("clickButton", async (button) => {
                 channel.messages.fetch().then(async messages => {
                     let message = messages.find(m => m.id == messageID);
                     if (message !== undefined) {
-                        await message.delete();
+                        await message.delete().catch(e => "Message was already deleted?");
                     }
                 });
             }
@@ -236,7 +236,7 @@ client.on("clickButton", async (button) => {
         newEmbed.title = "Resolved Report";
         newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
 
-        button.message.delete();
+        button.message.delete().catch(e => "Message was already deleted?");
         if (currentGuild.logChannel === "") return;
         let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
         if (logChannel === null) {
@@ -258,7 +258,7 @@ client.on("clickButton", async (button) => {
         newEmbed.title = "Resolved Report";
         let handlerMessage = (button.clicker.user === null) ? "Rejected. Error recording report handler." : "Rejected by <@" + button.clicker.user.id + ">";
         newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
-        button.message.delete();
+        button.message.delete().catch(e => "Message was already deleted?");
         if (currentGuild.logChannel === "") return;
         let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);
         if (logChannel === null) {
@@ -279,7 +279,7 @@ client.on("clickButton", async (button) => {
         newEmbed.title = "Resolved Report";
         let handlerMessage = (button.clicker.user === null) ? "Ignored. Error recording report handler." : "Ignored by <@" + button.clicker.user.id + ">";
         newEmbed.fields.unshift({ name: "Result", value: handlerMessage });
-        button.message.delete();
+        button.message.delete().catch(e => "Message was already deleted?");
         if (currentGuild.logChannel === "") return;
 
         let logChannel = button.guild.channels.cache.find(c => c.id == currentGuild.logChannel);

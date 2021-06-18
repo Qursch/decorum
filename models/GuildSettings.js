@@ -11,7 +11,7 @@ module.exports = mongoose.model("GuildSettings", new mongoose.Schema({
         default: ""
     },
     reportThreshold: {
-        type: mongoose.Decimal128,
+        type: Number,
         default: -1
     }
 }));
