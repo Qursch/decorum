@@ -203,6 +203,18 @@ client.on("message", async (message) => {
                 console.error(error);
                 message.channel.send("Error: Could not find message.");
             });
+        } else if(command == "~help") {
+            let embed = new Discord.MessageEmbed()
+                .setColor("#1c7bdb")
+                .setTitle("Decorum Help")
+                .setDescription("Command variables may be `[optional]` or `{required}`.")
+                .addFields(
+                    { name: "~report [messageID]", value: "Reports the message of the given ID, or the message that the command was used in reply to."},
+                    { name: "~set threshold {number}", value: "Sets the server threshold for automatically deleting reported messages. Use `-1` to disable auto-deletion." },
+                    { name: "~set channel {reports|logs} {#channel}", value: "Sets the server channel for reports or logs." }
+                )
+                .setFooter("Set commands require the server administrator permission.");
+            message.channel.send(embed);
         }
     }
 });
