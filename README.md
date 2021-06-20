@@ -1,6 +1,8 @@
 # Decorum
 
- A Discord bot for community-driven moderation. 
+A Discord bot for community-driven moderation.
+
+Click [here](https://discord.com/oauth2/authorize?client_id=853363957917024306&scope=bot&permissions=273408) to invite Decorum to your server.
 
 ## Installation
 
@@ -36,11 +38,15 @@ To get started, create a fork of this repository.
 [How?](https://docs.github.com/en/github/getting-started-with-github/quickstart/fork-a-repo)
 
 ## TODO 
+- Add documentation
+  - GitHub and via command
 - Restructure project files
   - Clean up app.js
 - Test for bugs
   - Deletion issues
 - Allow weights of report options to be set by servers
+- Allow reports through DMs
+- Notify users when their message was reported and approved
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
