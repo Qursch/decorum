@@ -1,6 +1,6 @@
 {
   "name": "decorum",
-  "version": "1.0.1-beta",
+  "version": "1.0.2-beta",
   "description": "A Discord bot for community-driven moderation.",
   "main": "app.js",
   "scripts": {

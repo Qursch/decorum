@@ -129,7 +129,7 @@ client.on("message", async (message) => {
 
                 reportChannel.messages.fetch().then(async messages => {
                     let reports = messages.filter((m) => {
-                        return m.author.id === client.user.id && m.embeds[0] !== undefined
+                        return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
                     });
                     let report;
                     if (reports.size !== 0) {
@@ -310,7 +310,7 @@ client.on("messageDelete", async (message) => {
     }
     reportChannel.messages.fetch().then(messages => {
         let reports = messages.filter((m) => {
-            return m.author.id === client.user.id && m.embeds[0] !== undefined
+            return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
         });
         let report;
         if (reports.size === 0) return;
@@ -334,7 +334,7 @@ client.on("channelDelete", (channel) => {
 
     reportChannel.messages.fetch().then(messages => {
         let reports = messages.filter((m) => {
-            return m.author.id === client.user.id && m.embeds[0] !== undefined
+            return m.author.id === client.user.id && m.embeds[0] !== undefined && r.embeds[0].url !== null;
         });
         let report;
         if (reports.size === 0) return;
