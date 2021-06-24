@@ -13,7 +13,7 @@ DiscordButtons(client);
 client.commands = new Discord.Collection();
 
 // Setup Database
-mongoose.connect(config.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false });
+mongoose.connect(config.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false });
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'Error connecting to database:'));
 db.once("open", () => {

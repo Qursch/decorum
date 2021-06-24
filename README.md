@@ -21,7 +21,7 @@ Create a `.env` file with the following filled out:
 
 ```
 DISCORD_TOKEN={TOKEN HERE}
-MONGO_URL={URL HERE}
+MONGO_URI={URI HERE}
 ```
 To start the bot, run:
 ```

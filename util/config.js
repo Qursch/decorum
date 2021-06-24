@@ -1,4 +1,4 @@
 module.exports = {
     DISCORD_TOKEN: process.env.DISCORD_TOKEN,
-    MONGO_URL: process.env.MONGO_URL
+    MONGO_URI: process.env.MONGO_URI
 }
