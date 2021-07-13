@@ -8,7 +8,7 @@ const mongoose = require("mongoose");
 const config = require("./util/config");
 
 // Setup Discord
-const client = new Discord.Client({});
+const client = new Discord.Client({ partials: Object.values(Discord.Constants.PartialTypes) })
 DiscordButtons(client);
 client.commands = new Discord.Collection();
 
@@ -148,7 +148,7 @@ client.on("message", async (message) => {
                             .addFields(
                                 { name: "Reported User", value: "<@" + reportedMessage.author.id + ">", inline: true },
                                 { name: "Report Score", value: authorReportScore + "/" + currentGuild.reportThreshold, inline: true },
-                                { name: "Message", value: reportedMessage.content },
+                                { name: "Message", value: (reportedMessage.content.length !== 0) ? reportedMessage.content : "*No text content.*" },
                                 { name: "Reporter (Score)", value: "<@" + message.author.id + "> (" + authorReportScore + ")" }
                             )
                             .setTimestamp();
@@ -203,19 +203,128 @@ client.on("message", async (message) => {
                 console.error(error);
                 message.channel.send("Error: Could not find message.");
             });
-        } else if(command == "~help") {
+        } else if (command == "~help") {
             let embed = new Discord.MessageEmbed()
                 .setColor("#1c7bdb")
                 .setTitle("Decorum Help")
                 .setDescription("Command variables may be `[optional]` or `{required}`.")
                 .addFields(
-                    { name: "~report [messageID]", value: "Reports the message of the given ID, or the message that the command was used in reply to."},
+                    { name: "~report [messageID]", value: "Reports the message of the given ID, or the message that the command was used in reply to." },
                     { name: "~set threshold {number}", value: "Sets the server threshold for automatically deleting reported messages. Use `-1` to disable auto-deletion." },
                     { name: "~set channel {reports|logs} {#channel}", value: "Sets the server channel for reports or logs." }
                 )
                 .setFooter("Set commands require the server administrator permission.");
             message.channel.send(embed);
+        } else if (command == "~info") {
+            let embed = new Discord.MessageEmbed()
+                .setColor("#1c7bdb")
+                .setTitle("Decorum Info")
+                .setDescription("Decorum is an open-source Discord bot for community-driven moderation.")
+                .setURL("https://github.com/Qursch/decorum")
+                .addFields(
+                    { name: "GitHub Repository", value: "https://github.com/Qursch/decorum" },
+                    { name: "Support Server", value: "https://discord.gg/6EYW6N9Z2c" }
+                )
+                .setImage("https://cdn.discordapp.com/icons/853607253289992202/8b72c21d7d5efa55cd6d9068f59bd07c.png?size=128")
+                .setFooter("Decorum was created with discord.js.");
+            message.channel.send(embed);
         }
+    }
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+    if (reaction.partial) {
+        try {
+            await reaction.fetch();
+        } catch (error) {
+            return console.error('Error fetching reaction message:', error);
+        }
+    }
+
+    if (reaction._emoji.name == "🚩") {
+        let message = reaction.message;
+        let currentGuild = await getOrCreateGuild(message.guild.id);
+
+        if (reaction.message.author.id === user.id) {
+            return message.channel.send("Error: You cannot report your own message.");
+        }
+        let reportChannel = reaction.message.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
+        if (reportChannel === undefined) {
+            return message.channel.send("Error: Could not report channel.");
+        }
+
+        reportChannel.messages.fetch().then(async messages => {
+            let reports = messages.filter((m) => {
+                return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
+            });
+            let report;
+            if (reports.size !== 0) {
+                report = reports.find(r => r.embeds[0].url.split("/")[6] == message.id);
+            }
+
+            let rsOBJ = await getOrCreateReportScore(user.id, message.guild.id);
+            let reactionReportScore = calculateReportScore(rsOBJ.approved, rsOBJ.ignored, rsOBJ.rejected);
+            let newScore = reactionReportScore;
+
+            if (report === undefined) {
+                let embed = new Discord.MessageEmbed()
+                    .setTitle("Active Report - 1 User")
+                    .setURL("https://discord.com/channels/" + message.guild.id + "/" + message.channel.id + "/" + message.id)
+                    .setColor("#ff9d00")
+                    .addFields(
+                        { name: "Reported User", value: "<@" + message.author.id + ">", inline: true },
+                        { name: "Report Score", value: reactionReportScore + "/" + currentGuild.reportThreshold, inline: true },
+                        { name: "Message", value: (message.content.length !== 0) ? message.content : "*No text content.*" },
+                        { name: "Reporter (Score)", value: "<@" + user.id + "> (" + reactionReportScore + ")" }
+                    )
+                    .setTimestamp();
+
+                let approve = new DiscordButtons.MessageButton()
+                    .setLabel("Approve")
+                    .setStyle("green")
+                    .setID("approve-" + message.id);
+
+                let reject = new DiscordButtons.MessageButton()
+                    .setLabel("Reject")
+                    .setStyle("red")
+                    .setID("reject-" + message.id);
+
+                let ignore = new DiscordButtons.MessageButton()
+                    .setLabel("Ignore")
+                    .setStyle("grey")
+                    .setID("ignore-" + message.id);
+
+                let actions = new DiscordButtons.MessageActionRow()
+                    .addComponent(approve)
+                    .addComponent(reject)
+                    .addComponent(ignore);
+
+                if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
+                    embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                    await message.delete().catch(e => "Message was already deleted?");
+                }
+
+                await reportChannel.send("", { embed: embed, component: actions });
+            } else {
+                if (!report.embeds[0].fields[3].value.includes(message.author.id)) {
+                    let newEmbed = report.embeds[0];
+                    newScore += parseFloat(newEmbed.fields[1].value.split("/")[0]);
+                    newEmbed.fields[1].value = newScore + "/" + currentGuild.reportThreshold;
+                    let title = newEmbed.title.split(" ");
+                    title[3]++;
+                    title[4] = "Users"
+                    newEmbed.title = title.join(" ");
+                    newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + user.id + "> (" + reactionReportScore + ")" };
+                    if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
+                        newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                        await message.delete().catch(e => "Message was already deleted?");
+                    }
+                    report.edit("", { embed: newEmbed });
+
+                }
+            }
+            reaction.remove().catch(e => "Reaction was already deleted?");
+        });
     }
 });
 
