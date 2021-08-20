@@ -61,6 +61,87 @@ const calculateReportScore = (approved, ignored, rejected) => {
     return roundedScore;
 };
 
+const reportMessage = async (reportedMessage, reportingUser, currentGuild, next) => {
+    let reportChannel = reportedMessage.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
+    if (reportChannel === undefined) {
+        return reportedMessage.channel.send("Error: Could not report channel.");
+    }
+
+    reportChannel.messages.fetch().then(async messages => {
+        let reports = messages.filter((m) => {
+            return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
+        });
+        let report;
+        if (reports.size !== 0) {
+            report = reports.find(r => r.embeds[0].url.split("/")[6] == reportedMessage.id);
+        }
+
+        let rsOBJ = await getOrCreateReportScore(reportingUser.id, reportedMessage.guild.id);
+        let authorReportScore = calculateReportScore(rsOBJ.approved, rsOBJ.ignored, rsOBJ.rejected);
+        let newScore = authorReportScore;
+
+        if (report === undefined) {
+            let embed = new Discord.MessageEmbed()
+                .setTitle("Active Report - 1 User")
+                .setURL("https://discord.com/channels/" + reportedMessage.guild.id + "/" + reportedMessage.channel.id + "/" + reportedMessage.id)
+                .setColor("#ff9d00")
+                .addFields(
+                    { name: "Reported User", value: "<@" + reportedMessage.author.id + ">", inline: true },
+                    { name: "Report Score", value: authorReportScore + "/" + currentGuild.reportThreshold, inline: true },
+                    { name: "Message", value: (reportedMessage.content.length !== 0) ? reportedMessage.content : "*No text content.*" },
+                    { name: "Reporter (Score)", value: "<@" + reportingUser.id + "> (" + authorReportScore + ")" }
+                )
+                .setTimestamp();
+
+            let approve = new DiscordButtons.MessageButton()
+                .setLabel("Approve")
+                .setStyle("green")
+                .setID("approve-" + reportedMessage.id);
+
+            let reject = new DiscordButtons.MessageButton()
+                .setLabel("Reject")
+                .setStyle("red")
+                .setID("reject-" + reportedMessage.id);
+
+            let ignore = new DiscordButtons.MessageButton()
+                .setLabel("Ignore")
+                .setStyle("grey")
+                .setID("ignore-" + reportedMessage.id);
+
+            let actions = new DiscordButtons.MessageActionRow()
+                .addComponent(approve)
+                .addComponent(reject)
+                .addComponent(ignore);
+
+            if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
+                embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                await reportedMessage.delete().catch(e => "Message was already deleted?");
+            }
+
+            await reportChannel.send("", { embed: embed, component: actions });
+        } else {
+            if (!report.embeds[0].fields[3].value.includes(reportingUser.id)) {
+                let newEmbed = report.embeds[0];
+                newScore += parseFloat(newEmbed.fields[1].value.split("/")[0]);
+                newEmbed.fields[1].value = newScore + "/" + currentGuild.reportThreshold;
+                let title = newEmbed.title.split(" ");
+                title[3]++;
+                title[4] = "Users"
+                newEmbed.title = title.join(" ");
+                newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + reportingUser.id + "> (" + authorReportScore + ")" };
+                if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
+                    newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
+                    await reportedMessage.delete().catch(e => "Message was already deleted?");
+                }
+                report.edit("", { embed: newEmbed });
+
+            }
+        }
+    });
+
+    return next();
+}
+
 client.on("message", async (message) => {
     if (message.guild === null) return;
 
@@ -122,84 +203,10 @@ client.on("message", async (message) => {
                 if (reportedMessage.author.id === message.author.id) {
                     return message.channel.send("Error: You cannot report your own message.");
                 }
-                let reportChannel = message.guild.channels.cache.find(c => c.id == currentGuild.reportChannel);
-                if (reportChannel === undefined) {
-                    return message.channel.send("Error: Could not report channel.");
-                }
 
-                reportChannel.messages.fetch().then(async messages => {
-                    let reports = messages.filter((m) => {
-                        return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
-                    });
-                    let report;
-                    if (reports.size !== 0) {
-                        report = reports.find(r => r.embeds[0].url.split("/")[6] == reportedID);
-                    }
-
-                    let rsOBJ = await getOrCreateReportScore(message.author.id, message.guild.id);
-                    let authorReportScore = calculateReportScore(rsOBJ.approved, rsOBJ.ignored, rsOBJ.rejected);
-                    let newScore = authorReportScore;
-
-                    if (report === undefined) {
-                        let embed = new Discord.MessageEmbed()
-                            .setTitle("Active Report - 1 User")
-                            .setURL("https://discord.com/channels/" + message.guild.id + "/" + reportedMessage.channel.id + "/" + reportedMessage.id)
-                            .setColor("#ff9d00")
-                            .addFields(
-                                { name: "Reported User", value: "<@" + reportedMessage.author.id + ">", inline: true },
-                                { name: "Report Score", value: authorReportScore + "/" + currentGuild.reportThreshold, inline: true },
-                                { name: "Message", value: (reportedMessage.content.length !== 0) ? reportedMessage.content : "*No text content.*" },
-                                { name: "Reporter (Score)", value: "<@" + message.author.id + "> (" + authorReportScore + ")" }
-                            )
-                            .setTimestamp();
-
-                        let approve = new DiscordButtons.MessageButton()
-                            .setLabel("Approve")
-                            .setStyle("green")
-                            .setID("approve-" + reportedMessage.id);
-
-                        let reject = new DiscordButtons.MessageButton()
-                            .setLabel("Reject")
-                            .setStyle("red")
-                            .setID("reject-" + reportedMessage.id);
-
-                        let ignore = new DiscordButtons.MessageButton()
-                            .setLabel("Ignore")
-                            .setStyle("grey")
-                            .setID("ignore-" + reportedMessage.id);
-
-                        let actions = new DiscordButtons.MessageActionRow()
-                            .addComponent(approve)
-                            .addComponent(reject)
-                            .addComponent(ignore);
-
-                        if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
-                            embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
-                            await reportedMessage.delete().catch(e => "Message was already deleted?");
-                        }
-
-                        await reportChannel.send("", { embed: embed, component: actions });
-                    } else {
-                        if (!report.embeds[0].fields[3].value.includes(message.author.id)) {
-                            let newEmbed = report.embeds[0];
-                            newScore += parseFloat(newEmbed.fields[1].value.split("/")[0]);
-                            newEmbed.fields[1].value = newScore + "/" + currentGuild.reportThreshold;
-                            let title = newEmbed.title.split(" ");
-                            title[3]++;
-                            title[4] = "Users"
-                            newEmbed.title = title.join(" ");
-                            newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + message.author.id + "> (" + authorReportScore + ")" };
-                            if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
-                                newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
-                                await reportedMessage.delete().catch(e => "Message was already deleted?");
-                            }
-                            report.edit("", { embed: newEmbed });
-
-                        }
-                    }
-                    message.delete().catch(e => "Message was already deleted?");
-                });
-            }).catch(error => {
+                reportMessage(reportedMessage, message.author, currentGuild, () => message.delete().catch(e => "Message was already deleted?"));
+                
+            }).catch (error => {
                 console.error(error);
                 message.channel.send("Error: Could not find message.");
             });
@@ -253,78 +260,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
             return message.channel.send("Error: Could not report channel.");
         }
 
-        reportChannel.messages.fetch().then(async messages => {
-            let reports = messages.filter((m) => {
-                return m.author.id === client.user.id && m.embeds[0] !== undefined && m.embeds[0].url !== null;
-            });
-            let report;
-            if (reports.size !== 0) {
-                report = reports.find(r => r.embeds[0].url.split("/")[6] == message.id);
-            }
-
-            let rsOBJ = await getOrCreateReportScore(user.id, message.guild.id);
-            let reactionReportScore = calculateReportScore(rsOBJ.approved, rsOBJ.ignored, rsOBJ.rejected);
-            let newScore = reactionReportScore;
-
-            if (report === undefined) {
-                let embed = new Discord.MessageEmbed()
-                    .setTitle("Active Report - 1 User")
-                    .setURL("https://discord.com/channels/" + message.guild.id + "/" + message.channel.id + "/" + message.id)
-                    .setColor("#ff9d00")
-                    .addFields(
-                        { name: "Reported User", value: "<@" + message.author.id + ">", inline: true },
-                        { name: "Report Score", value: reactionReportScore + "/" + currentGuild.reportThreshold, inline: true },
-                        { name: "Message", value: (message.content.length !== 0) ? message.content : "*No text content.*" },
-                        { name: "Reporter (Score)", value: "<@" + user.id + "> (" + reactionReportScore + ")" }
-                    )
-                    .setTimestamp();
-
-                let approve = new DiscordButtons.MessageButton()
-                    .setLabel("Approve")
-                    .setStyle("green")
-                    .setID("approve-" + message.id);
-
-                let reject = new DiscordButtons.MessageButton()
-                    .setLabel("Reject")
-                    .setStyle("red")
-                    .setID("reject-" + message.id);
-
-                let ignore = new DiscordButtons.MessageButton()
-                    .setLabel("Ignore")
-                    .setStyle("grey")
-                    .setID("ignore-" + message.id);
-
-                let actions = new DiscordButtons.MessageActionRow()
-                    .addComponent(approve)
-                    .addComponent(reject)
-                    .addComponent(ignore);
-
-                if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
-                    embed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
-                    await message.delete().catch(e => "Message was already deleted?");
-                }
-
-                await reportChannel.send("", { embed: embed, component: actions });
-            } else {
-                if (!report.embeds[0].fields[3].value.includes(message.author.id)) {
-                    let newEmbed = report.embeds[0];
-                    newScore += parseFloat(newEmbed.fields[1].value.split("/")[0]);
-                    newEmbed.fields[1].value = newScore + "/" + currentGuild.reportThreshold;
-                    let title = newEmbed.title.split(" ");
-                    title[3]++;
-                    title[4] = "Users"
-                    newEmbed.title = title.join(" ");
-                    newEmbed.fields[3] = { name: "Reporters (Scores)", value: newEmbed.fields[3].value + ", <@" + user.id + "> (" + reactionReportScore + ")" };
-                    if (currentGuild.reportThreshold !== -1 && newScore >= currentGuild.reportThreshold) {
-                        newEmbed.description = ":warning: Notice :warning: Message was automatically deleted after meeting the report threshold.";
-                        await message.delete().catch(e => "Message was already deleted?");
-                    }
-                    report.edit("", { embed: newEmbed });
-
-                }
-            }
-            reaction.remove().catch(e => "Reaction was already deleted?");
-        });
+        reportMessage(reaction.message, user, currentGuild, () => reaction.remove().catch(e => "Reaction was already deleted?"));
     }
 });
 
