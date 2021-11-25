@@ -2,9 +2,6 @@
 
 A Discord bot for community-driven moderation.
 
-Click [here](https://discord.com/oauth2/authorize?client_id=853363957917024306&scope=bot&permissions=273408) to invite Decorum to your server.
-
-
 ## Installation
 
 Use the node package manager [npm](https://www.npmjs.com/) to install the required modules.
