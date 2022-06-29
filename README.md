@@ -2,6 +2,10 @@
 
 A Discord bot for community-driven moderation.
 
+## NOTICE
+
+Decorum is no longer maintained.
+
 ## Installation
 
 Use the node package manager [npm](https://www.npmjs.com/) to install the required modules.
